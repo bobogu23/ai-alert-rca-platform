@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    participant Alert as 告警源(伽利略/Prometheus)
+    participant GW as Alert Ingest Gateway
+    participant Dedup as 去重/抑制引擎
+    participant Orch as Orchestrator(Spring AI 编排核心)
+    participant Route as 配置化路由引擎
+    participant LogAg as LogAnalysisAgent
+    participant TMAg as TraceMetricAgent
+    participant CodeAg as CodeContextAgent
+    participant RCA as RootCauseReasoningAgent
+    participant Critic as CriticAgent
+    participant Rep as ReportGeneratorAgent
+    participant Notify as NotificationGateway
+    participant CLS as CLS MCP
+    participant Galileo as 伽利略 MCP
+
+    Alert->>GW: 告警 Webhook
+    GW->>Dedup: 计算告警指纹
+    Dedup->>Dedup: 指纹命中?/抑制窗口内?/级联根因已知?
+    alt 命中抑制规则
+        Dedup-->>GW: 直接归并到已有案卷, 不新建分析
+    else 新故障或已升级
+        Dedup->>Orch: 触发归因分析任务(alertContext)
+        Orch->>Route: 告警分类路由(日志类/耗时类/资源类)
+        Route-->>Orch: 返回需激活的 Agent 集合
+        par 并行证据收集
+            Orch->>LogAg: 分析日志(service, timeWindow)
+            LogAg->>CLS: get_log_data(聚合/过滤)
+            CLS-->>LogAg: 日志聚类结果
+            LogAg->>LogAg: 堆栈裁剪+调用链梳理
+        and
+            Orch->>CodeAg: 定位代码上下文
+            CodeAg-->>Orch: 类/方法/最近发布信息
+        end
+        LogAg-->>Orch: 日志分析结果(含Top异常/调用链)
+        opt 接口耗时高
+            Orch->>TMAg: 分析 Trace/Metric 瓶颈
+            TMAg->>Galileo: get_metric_data/get_trace_data
+            Galileo-->>TMAg: 指标+慢Span数据
+            TMAg-->>Orch: 瓶颈定位结果
+        end
+        Note over Orch,TMAg: 任一 Agent/MCP 超时或失败时<br/>隔离该证据源并降级, 不阻塞整体
+        Orch->>RCA: 汇总日志+Trace+代码证据
+        RCA-->>Orch: 根因假设列表(带置信度+证据引用)
+        Orch->>Critic: 校验根因假设
+        Critic->>Critic: 逐条核对证据是否真实存在/是否被工具结果支持
+        alt 校验不通过(存在无证据支撑结论)
+            Critic-->>RCA: 打回重推(最多2轮), 超限则降级为低置信度
+        else 校验通过
+            Critic-->>Rep: 通过, 生成报告
+            Rep-->>Orch: 结构化报告
+            Orch->>Notify: 请求推送报告
+            Notify->>Notify: 按渠道配置路由(当前: 企业微信)
+            Notify-->>GW: 推送完成
+        end
+    end

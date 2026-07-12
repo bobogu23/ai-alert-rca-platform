@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!-- AI 告警归因系统代码规范, 务实配置: 关注格式一致性与常见坏味道, 不强制 Javadoc -->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java"/>
+
+    <module name="LineLength">
+        <property name="max" value="160"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
+    <module name="FileTabCharacter">
+        <property name="eachLine" value="true"/>
+    </module>
+
+    <module name="TreeWalker">
+        <!-- 命名规范 -->
+        <module name="ConstantName"/>
+        <module name="LocalVariableName"/>
+        <module name="MemberName"/>
+        <module name="MethodName"/>
+        <module name="PackageName"/>
+        <module name="ParameterName"/>
+        <module name="TypeName"/>
+
+        <!-- import 规范 -->
+        <module name="AvoidStarImport"/>
+        <module name="RedundantImport"/>
+        <module name="UnusedImports"/>
+
+        <!-- 代码块与空白 -->
+        <module name="LeftCurly"/>
+        <module name="NeedBraces"/>
+        <module name="WhitespaceAfter"/>
+        <module name="MethodParamPad"/>
+
+        <!-- 常见坏味道 -->
+        <module name="EmptyStatement"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="UpperEll"/>
+        <module name="MissingOverride"/>
+    </module>
+</module>

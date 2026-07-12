@@ -1,0 +1,121 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-alert-rca-platform
+  # 全局 HTTP 客户端超时(含 Spring AI 底层 RestClient): 读超时略大于 llm-call-ms, 由 TimeLimiter 先行取消, HTTP 层兜底
+  http:
+    client:
+      connect-timeout: 3s
+      read-timeout: 65s
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/rca?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:123456abc}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+  # Spring AI 通过 OpenAI 兼容协议对接 LiteLLM 网关
+  ai:
+    # 关闭 Spring AI 内置重试, 重试与超时统一由 RetryExecutor + TimeLimiter 管控, 避免双层重试叠加放大耗时
+    retry:
+      max-attempts: 1
+    openai:
+      base-url: ${LITELLM_BASE_URL:http://127.0.0.1:4000}
+      api-key: ${LITELLM_API_KEY:7d561f32a0c047b8a0041ee80cf950b1.YUx4vMquBxkEzLEU}
+      chat:
+        options:
+          # 默认模型, 各 Agent 会按角色覆盖
+          model: ${LITELLM_DEFAULT_MODEL:glm-5.2}
+          temperature: 0.2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# 归因系统自定义配置
+rca:
+  # 大模型分级路由: 按 Agent 角色映射到 LiteLLM 中的不同 model 名称
+  llm:
+    reasoning-model: ${RCA_REASONING_MODEL:glm-5.2}
+    lightweight-model: ${RCA_LIGHTWEIGHT_MODEL:glm-5.2}
+    max-retries: 2
+    self-consistency-samples: 3
+  # 分层超时预算 (毫秒), 对应详细设计文档 7.2
+  # 层级需满足: mcp < llm < agent, 且 overall 覆盖多轮 critic; 真实推理模型较慢, llm 放宽到 60s
+  timeout:
+    mcp-call-ms: 10000
+    agent-ms: 70000
+    llm-call-ms: 60000
+    critic-loop-ms: 70000
+    overall-ms: 180000
+  # 去重与抑制
+  dedup:
+    cooldown-seconds: 600
+  critic:
+    max-iterations: 2
+  # 编排并发限流: 限制同时进行的分析数, 对下游 LLM/MCP 做背压保护
+  concurrency:
+    max-concurrent-analyses: 16
+    queue-capacity: 128
+  # 迭代取证-证伪闭环: 以日志线索为起点定向验证根因方向, 最多 max-rounds 轮
+  investigation:
+    enabled: true
+    max-rounds: 3
+  # 上下文预算 (token 估算上限)
+  context-budget:
+    reasoning-agent-tokens: 12000
+    critic-agent-tokens: 8000
+    evidence-agent-tokens: 6000
+  # 业务代码包名前缀白名单, 用于堆栈裁剪 (详细设计 5.3), 生产环境放七彩石
+  stack-pruning:
+    business-packages:
+      - com.tencent
+    framework-packages:
+      - java.
+      - javax.
+      - jakarta.
+      - sun.
+      - org.springframework.
+      - org.apache.
+      - com.alibaba.dubbo.
+      - org.apache.dubbo.
+      - io.netty.
+      - com.mysql.
+      - org.mybatis.
+      - redis.clients.
+      - io.lettuce.
+  # MCP 数据源接入
+  mcp:
+    cls:
+      base-url: ${CLS_MCP_URL:http://127.0.0.1:9001}
+      token: ${CLS_MCP_TOKEN:}
+    galileo:
+      base-url: ${GALILEO_MCP_URL:http://127.0.0.1:9002}
+      token: ${GALILEO_MCP_TOKEN:}
+    coderepo:
+      base-url: ${CODEREPO_MCP_URL:http://127.0.0.1:9003}
+      token: ${CODEREPO_MCP_TOKEN:}
+  # 通知渠道
+  notify:
+    wecom:
+      enabled: true
+      webhook-url: ${WECOM_WEBHOOK_URL:https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=placeholder}
+      max-retries: 3
