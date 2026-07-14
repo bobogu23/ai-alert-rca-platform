@@ -113,7 +113,30 @@ public class WecomChannel implements NotificationChannel {
         if (StringUtils.hasText(message.reportUrl())) {
             builder.append("\n[查看完整报告](").append(message.reportUrl()).append(")\n");
         }
+        appendFeedbackSection(builder, message.caseId());
         return builder.toString();
+    }
+
+    /**
+     * 渲染人工反馈引导区块 (在线自我完善方案 07 文档 2.2、2.5).
+     * 企微 markdown 不支持交互按钮, 故以带 feedbackType 参数的反馈链接模拟"采纳/部分/驳回/误报"四个入口,
+     * 引导 SRE 就地一键反馈, 回流到 /api/rca/cases/{caseId}/feedback. 未配置反馈地址时不渲染.
+     */
+    private void appendFeedbackSection(StringBuilder builder, String caseId) {
+        String baseUrl = notifyProperties.getFeedbackBaseUrl();
+        if (!StringUtils.hasText(baseUrl) || !StringUtils.hasText(caseId)) {
+            return;
+        }
+        builder.append("\n> 归因是否准确? 请一键反馈以帮助系统持续完善:\n")
+                .append(feedbackLink("✅ 采纳", baseUrl, caseId, "CONFIRMED")).append("　")
+                .append(feedbackLink("◐ 部分正确", baseUrl, caseId, "PARTIAL")).append('\n')
+                .append(feedbackLink("✗ 驳回", baseUrl, caseId, "REJECTED")).append("　")
+                .append(feedbackLink("🔕 误报", baseUrl, caseId, "FALSE_POSITIVE")).append('\n');
+    }
+
+    private String feedbackLink(String label, String baseUrl, String caseId, String feedbackType) {
+        String url = baseUrl + "?caseId=" + caseId + "&feedbackType=" + feedbackType;
+        return "[" + label + "](" + url + ")";
     }
 
     private String colorOf(ConfidenceLevel confidence) {

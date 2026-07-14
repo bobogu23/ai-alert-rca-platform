@@ -13,6 +13,12 @@ public class NotifyProperties {
     /** 企业微信渠道配置. */
     private Wecom wecom = new Wecom();
 
+    /**
+     * 反馈落地页基础 URL, 用于在报告中渲染人工反馈入口 (在线自我完善方案 07 文档 2.5).
+     * 形如 https://rca.example.com/feedback, 拼接 caseId 后引导 SRE 就地反馈. 为空则不渲染反馈区块.
+     */
+    private String feedbackBaseUrl;
+
     /** 企业微信群机器人配置. */
     @Data
     public static class Wecom {

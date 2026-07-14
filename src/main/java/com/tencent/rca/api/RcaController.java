@@ -4,7 +4,6 @@ import com.tencent.rca.api.dto.AnalyzeRequest;
 import com.tencent.rca.api.dto.AnalyzeResponse;
 import com.tencent.rca.api.dto.CaseView;
 import com.tencent.rca.api.dto.FeedbackRequest;
-import com.tencent.rca.common.enums.CaseStatus;
 import com.tencent.rca.common.enums.ChannelType;
 import com.tencent.rca.common.enums.ConfidenceLevel;
 import com.tencent.rca.domain.AlertContext;
@@ -12,6 +11,7 @@ import com.tencent.rca.domain.TimeWindow;
 import com.tencent.rca.governance.CaseService;
 import com.tencent.rca.governance.DedupEngine;
 import com.tencent.rca.governance.DedupResult;
+import com.tencent.rca.governance.FeedbackService;
 import com.tencent.rca.governance.SuppressionEngine;
 import com.tencent.rca.governance.SuppressionResult;
 import com.tencent.rca.notify.NotificationGateway;
@@ -50,17 +50,20 @@ public class RcaController {
     private final Orchestrator orchestrator;
     private final CaseService caseService;
     private final NotificationGateway notificationGateway;
+    private final FeedbackService feedbackService;
 
     public RcaController(DedupEngine dedupEngine,
                          SuppressionEngine suppressionEngine,
                          Orchestrator orchestrator,
                          CaseService caseService,
-                         NotificationGateway notificationGateway) {
+                         NotificationGateway notificationGateway,
+                         FeedbackService feedbackService) {
         this.dedupEngine = dedupEngine;
         this.suppressionEngine = suppressionEngine;
         this.orchestrator = orchestrator;
         this.caseService = caseService;
         this.notificationGateway = notificationGateway;
+        this.feedbackService = feedbackService;
     }
 
     /**
@@ -126,28 +129,20 @@ public class RcaController {
     }
 
     /**
-     * 提交人工反馈 (详细设计文档 4.6).
+     * 提交人工反馈 (在线自我完善方案 07 文档 2).
+     * 落库反馈台账 + 记录诊断快照 + 推进案卷状态 + 上报采纳率指标, 驱动经验飞轮.
      *
      * @param caseId  案卷 ID
      * @param request 反馈请求
-     * @return 反馈受理结果
+     * @return 反馈受理结果, 案卷不存在返回 404
      */
     @PostMapping("/cases/{caseId}/feedback")
     public ResponseEntity<Void> feedback(@PathVariable Long caseId, @Valid @RequestBody FeedbackRequest request) {
         if (caseService.getById(caseId).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        // 第一版反馈用于后续 Prompt 迭代, 暂以日志留痕并推进案卷状态; 专用反馈存储表在后续版本引入
-        log.info("收到人工反馈: caseId={}, verdict={}, comment={}", caseId, request.verdict(), request.comment());
-        caseService.transitionTo(caseId, targetStatus(request));
+        feedbackService.record(caseId, request);
         return ResponseEntity.ok().build();
-    }
-
-    private CaseStatus targetStatus(FeedbackRequest request) {
-        return switch (request.verdict()) {
-            case INACCURATE -> CaseStatus.FALSE_POSITIVE;
-            default -> CaseStatus.ACKNOWLEDGED;
-        };
     }
 
     private AlertContext toAlertContext(AnalyzeRequest request) {

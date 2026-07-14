@@ -47,3 +47,26 @@ CREATE TABLE IF NOT EXISTS notification_record (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   KEY idx_case (case_id)
 ) COMMENT '报告推送记录';
+
+-- 人工反馈台账 (在线自我完善方案 07 文档 2.3)
+CREATE TABLE IF NOT EXISTS alert_feedback (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  case_id BIGINT NOT NULL COMMENT '关联 alert_case.id',
+  fingerprint VARCHAR(128) COMMENT '告警指纹, 用于同类告警经验复用',
+  service_name VARCHAR(128) COMMENT '服务名, 冗余自案卷, 用于按服务聚合',
+  feedback_type VARCHAR(32) NOT NULL COMMENT 'CONFIRMED/PARTIAL/REJECTED/FALSE_POSITIVE',
+  ai_root_cause_summary TEXT COMMENT 'AI 当时给出的根因结论快照',
+  ai_confidence VARCHAR(16) COMMENT 'AI 当时给出的置信度 HIGH/MEDIUM/LOW',
+  actual_root_cause_direction VARCHAR(32) COMMENT '真实根因方向 REDIS/DB/DOWNSTREAM/GC/NETWORK/RESOURCE/UNKNOWN',
+  actual_root_cause_summary TEXT COMMENT '真实根因描述',
+  correct_evidence_hint VARCHAR(512) COMMENT '正确的证据线索',
+  error_category VARCHAR(32) COMMENT '错误类型 WRONG_DIRECTION/INCOMPLETE/WRONG_EVIDENCE/MISSED_ROUTING/OVER_CONFIDENT/HALLUCINATION',
+  suggestion VARCHAR(1024) COMMENT '反馈人自由建议',
+  feedback_by VARCHAR(64) COMMENT '反馈人标识',
+  feedbacker_level INT DEFAULT 1 COMMENT '反馈人级别 1~3, 资深 SRE 权重更高',
+  adopted_to_experience TINYINT DEFAULT 0 COMMENT '是否已提炼为经验资产',
+  feedback_at DATETIME NOT NULL COMMENT '反馈时间',
+  KEY idx_case (case_id),
+  KEY idx_type_time (feedback_type, feedback_at),
+  KEY idx_fingerprint (fingerprint)
+) COMMENT '人工反馈台账';

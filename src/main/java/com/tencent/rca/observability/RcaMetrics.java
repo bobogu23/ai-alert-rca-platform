@@ -18,6 +18,7 @@ public class RcaMetrics {
     private static final String ANALYZE_COMPLETED = "rca_analyze_completed_total";
     private static final String ANALYZE_REJECTED = "rca_analyze_rejected_total";
     private static final String ANALYZE_DURATION = "rca_analyze_duration";
+    private static final String FEEDBACK = "rca_feedback_total";
 
     private final MeterRegistry registry;
 
@@ -80,5 +81,15 @@ public class RcaMetrics {
      */
     public void recordAnalyzeDuration(long millis) {
         registry.timer(ANALYZE_DURATION).record(Duration.ofMillis(millis));
+    }
+
+    /**
+     * 记录一次人工反馈及其类型, 供采纳率等经验飞轮指标计算 (在线自我完善方案 07 文档 6.2).
+     * 采纳率可由 rca_feedback_total{type="CONFIRMED"} / sum(rca_feedback_total) 计算.
+     *
+     * @param feedbackType 反馈类型 (CONFIRMED/PARTIAL/REJECTED/FALSE_POSITIVE)
+     */
+    public void recordFeedback(String feedbackType) {
+        registry.counter(FEEDBACK, "type", feedbackType).increment();
     }
 }

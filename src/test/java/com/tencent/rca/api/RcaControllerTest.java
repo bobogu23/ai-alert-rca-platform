@@ -11,10 +11,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.tencent.rca.governance.CaseService;
 import com.tencent.rca.governance.DedupEngine;
 import com.tencent.rca.governance.DedupResult;
+import com.tencent.rca.governance.FeedbackService;
 import com.tencent.rca.governance.SuppressionEngine;
 import com.tencent.rca.governance.SuppressionResult;
 import com.tencent.rca.notify.NotificationGateway;
 import com.tencent.rca.orchestrator.Orchestrator;
+import com.tencent.rca.repository.entity.AlertCaseEntity;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,8 @@ class RcaControllerTest {
     private CaseService caseService;
     @MockBean
     private NotificationGateway notificationGateway;
+    @MockBean
+    private FeedbackService feedbackService;
 
     private static final String VALID_BODY = """
             {
@@ -111,5 +115,35 @@ class RcaControllerTest {
 
         mockMvc.perform(get("/api/rca/cases/123"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldReturn200WhenFeedbackAccepted() throws Exception {
+        when(caseService.getById(anyLong())).thenReturn(Optional.of(new AlertCaseEntity()));
+        String body = "{\"feedbackType\": \"CONFIRMED\"}";
+
+        mockMvc.perform(post("/api/rca/cases/10/feedback")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldReturn404WhenFeedbackOnUnknownCase() throws Exception {
+        when(caseService.getById(anyLong())).thenReturn(Optional.empty());
+        String body = "{\"feedbackType\": \"REJECTED\", \"errorCategory\": \"WRONG_DIRECTION\"}";
+
+        mockMvc.perform(post("/api/rca/cases/999/feedback")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldReturn400WhenFeedbackTypeMissing() throws Exception {
+        when(caseService.getById(anyLong())).thenReturn(Optional.of(new AlertCaseEntity()));
+        String body = "{\"suggestion\": \"no type\"}";
+
+        mockMvc.perform(post("/api/rca/cases/10/feedback")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -115,6 +115,8 @@ rca:
       token: ${CODEREPO_MCP_TOKEN:}
   # 通知渠道
   notify:
+    # 反馈落地页基础 URL, 用于在报告中渲染人工反馈入口; 为空则不渲染反馈区块
+    feedback-base-url: ${RCA_FEEDBACK_BASE_URL:}
     wecom:
       enabled: true
       webhook-url: ${WECOM_WEBHOOK_URL:https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=placeholder}
