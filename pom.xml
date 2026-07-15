@@ -20,6 +20,7 @@
     <properties>
         <java.version>21</java.version>
         <spring-ai.version>1.0.0</spring-ai.version>
+        <otel.instrumentation.version>2.28.1</otel.instrumentation.version>
         <checkstyle.plugin.version>3.6.0</checkstyle.plugin.version>
         <puppycrawl.checkstyle.version>10.20.1</puppycrawl.checkstyle.version>
     </properties>
@@ -30,6 +31,14 @@
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
                 <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- OpenTelemetry instrumentation BOM, 统一管理 OTel 相关依赖版本 (Langfuse 接入) -->
+            <dependency>
+                <groupId>io.opentelemetry.instrumentation</groupId>
+                <artifactId>opentelemetry-instrumentation-bom</artifactId>
+                <version>${otel.instrumentation.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -67,6 +76,18 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Langfuse 可观测性接入: 基于 OpenTelemetry 将 Spring AI 的 LLM 交互 Trace 上报到 Langfuse -->
+        <!-- Micrometer -> OpenTelemetry 桥接, 让 Spring AI/Micrometer 观测转为 OTel span -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <!-- OTLP 导出器: 通过 OTLP 协议把 Trace 上报到 Langfuse OTLP 端点 -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
         </dependency>
 
         <dependency>

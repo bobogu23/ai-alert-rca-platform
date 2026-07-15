@@ -40,6 +40,10 @@ spring:
           # 默认模型, 各 Agent 会按角色覆盖
           model: ${LITELLM_DEFAULT_MODEL:glm-5.2}
           temperature: 0.2
+        # Langfuse 接入: 让 LLM 交互的 prompt/completion 进入观测上下文(供 ObservationFilter 写入 span)
+        observations:
+          log-prompt: true
+          log-completion: true
 
 management:
   endpoints:
@@ -49,9 +53,26 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  # 分布式追踪采样: 归因为低频高价值场景, 默认全采样; Langfuse 未启用时无导出器, span 仅在本地生成
+  tracing:
+    sampling:
+      probability: ${RCA_TRACING_SAMPLING:1.0}
+  observations:
+    annotations:
+      enabled: true
 
 # 归因系统自定义配置
 rca:
+  # Langfuse 可观测性接入 (通过 OpenTelemetry OTLP 上报 LLM 交互 Trace)
+  # 仅预留配置项占位, 实际密钥/地址通过环境变量注入, 不硬编码; 填值并置 enabled=true 后生效
+  langfuse:
+    enabled: ${LANGFUSE_ENABLED:false}
+    # 主机地址(不含路径), 按区域选择: EU https://cloud.langfuse.com; US https://us.cloud.langfuse.com; 自托管 http://localhost:3000
+    host: ${LANGFUSE_HOST:}
+    # Langfuse Public Key, 形如 pk-lf-...
+    public-key: ${LANGFUSE_PUBLIC_KEY:}
+    # Langfuse Secret Key, 形如 sk-lf-...
+    secret-key: ${LANGFUSE_SECRET_KEY:}
   # 大模型分级路由: 按 Agent 角色映射到 LiteLLM 中的不同 model 名称
   llm:
     reasoning-model: ${RCA_REASONING_MODEL:glm-5.2}

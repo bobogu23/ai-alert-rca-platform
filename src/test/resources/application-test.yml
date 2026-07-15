@@ -29,8 +29,25 @@ spring:
       chat:
         options:
           model: ${LITELLM_DEFAULT_MODEL:glm-5.2}
+        observations:
+          log-prompt: true
+          log-completion: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  observations:
+    annotations:
+      enabled: true
 
 rca:
   concurrency:
     max-concurrent-analyses: 4
     queue-capacity: 8
+  # Langfuse 接入测试用: 默认关闭, 填入下列环境变量并置 LANGFUSE_ENABLED=true 后, Trace 会真实上报
+  langfuse:
+    enabled: ${LANGFUSE_ENABLED:true}
+    host: ${LANGFUSE_HOST:https://us.cloud.langfuse.com}
+    public-key: ${LANGFUSE_PUBLIC_KEY:}
+    secret-key: ${LANGFUSE_SECRET_KEY:}
